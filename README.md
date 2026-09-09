@@ -170,7 +170,8 @@ helm template fluxer . --namespace fluxer
 6. **Discovery** `/api/.well-known/fluxer` → the API serves the route (200 with
    `api/gateway/media/static_cdn/admin`, or 403 anti-DNS-rebinding when no
    ingress is installed — the JSON requires the public URL through ingress).
-7. **Web client** `app-proxy` serves HTML with `Fluxer`.
+7. **Web client** `app-proxy` responds HTTP 200 (the SPA bootstrap requires an
+   ingress / resolvable hostname).
 
 Run the E2E locally:
 ```bash
