@@ -167,7 +167,9 @@ helm template fluxer . --namespace fluxer
 4. **SeaweedFS**: the 5 S3 buckets exist (via `weed shell`).
 5. Endpoints return 200: `api/_health`, `media-proxy/_health`, `admin/_health`,
    `gateway/_health`, `livekit` (7880).
-6. **Discovery** `/api/.well-known/fluxer` → JSON with `api/gateway/media/static_cdn/admin`.
+6. **Discovery** `/api/.well-known/fluxer` → the API serves the route (200 with
+   `api/gateway/media/static_cdn/admin`, or 403 anti-DNS-rebinding when no
+   ingress is installed — the JSON requires the public URL through ingress).
 7. **Web client** `app-proxy` serves HTML with `Fluxer`.
 
 Run the E2E locally:
