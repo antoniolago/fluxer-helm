@@ -55,9 +55,7 @@ spec:
               containerPort: 9333
               protocol: TCP
           resources:
-            requests:
-              cpu: 250m
-              memory: 512Mi
+{{ toYaml .Values.seaweedfs.resources | nindent 12 }}
           readinessProbe:
             tcpSocket:
               port: 8333

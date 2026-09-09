@@ -58,11 +58,7 @@ spec:
               containerPort: {{ .Values.postgres.port }}
               protocol: TCP
           resources:
-            limits:
-              cpu: 1
-            requests:
-              cpu: 250m
-              memory: 512Mi
+{{ toYaml .Values.postgres.resources | nindent 12 }}
           readinessProbe:
             exec:
               command:

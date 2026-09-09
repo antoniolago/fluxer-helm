@@ -73,6 +73,36 @@ postgres:
   database: fluxer
   user: fluxer
   port: 5432
+  resources:
+    limits:
+      cpu: 1
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+valkey:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+nats:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+meilisearch:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+seaweedfs:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
 
 # Storage class + size per component. Postgres and SeaweedFS should use a
 # block-backed class (never SMB/NFS) for data integrity and locking.
@@ -110,6 +140,10 @@ livekit:
   mediaLBIP: ""
   # Service type for the media/TURN listener.
   mediaServiceType: LoadBalancer
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
   stun:
     - stun.l.google.com:19302
     - stun1.l.google.com:19302
@@ -137,7 +171,7 @@ stateless:
       FLUXER_API_PRESIGNED_ATTACHMENT_UPLOADS_ENABLED: "true"
     resources:
       requests:
-        cpu: 250m
+        cpu: 100m
         memory: 512Mi
     probe:
       mode: http
@@ -167,7 +201,7 @@ stateless:
       FLUXER_API_WORKER_ENABLE_VOICE_RECONCILIATION: "true"
     resources:
       requests:
-        cpu: 250m
+        cpu: 100m
         memory: 512Mi
 
   gateway:
@@ -183,8 +217,8 @@ stateless:
       FLUXER_GATEWAY_LOGGER_LEVEL: info
     resources:
       requests:
-        cpu: 100m
-        memory: 256Mi
+        cpu: 50m
+        memory: 128Mi
     probe:
       mode: http
       path: /_health
@@ -209,8 +243,8 @@ stateless:
       FLUXER_MEDIA_PROXY_STORAGE_BACKEND: s3
     resources:
       requests:
-        cpu: 100m
-        memory: 256Mi
+        cpu: 50m
+        memory: 128Mi
     probe:
       mode: http
       path: /_health
@@ -285,8 +319,8 @@ stateless:
       FLUXER_ADMIN_OAUTH_REDIRECT_URI: "{{ .publicUrl }}/admin/oauth2_callback"
     resources:
       requests:
-        cpu: 100m
-        memory: 256Mi
+        cpu: 50m
+        memory: 128Mi
     probe:
       mode: http
       path: /_health
@@ -322,7 +356,7 @@ shard:
 shardResources:
   requests:
     cpu: 50m
-    memory: 128Mi
+    memory: 64Mi
 
 # Ingress (Istio VirtualService mirroring the Caddyfile route prefix-strip).
 ingress:

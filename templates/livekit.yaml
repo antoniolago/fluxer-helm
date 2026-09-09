@@ -138,9 +138,7 @@ spec:
               containerPort: {{ .Values.livekit.turn.tlsPort }}
               protocol: TCP
           resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
+{{ toYaml .Values.livekit.resources | nindent 12 }}
           readinessProbe:
             tcpSocket:
               port: 7880

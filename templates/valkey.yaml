@@ -49,9 +49,7 @@ spec:
               containerPort: 6379
               protocol: TCP
           resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
+{{ toYaml .Values.valkey.resources | nindent 12 }}
           readinessProbe:
             exec:
               command:

@@ -47,7 +47,7 @@ wait_rollouts() {
         ok  "rollout $kind/$n"
       else
         fail "rollout $kind/$n did not become ready"
-        kubectl get pod -n "$NAMESPACE" -l "app.kubernetes.io/instance=$RELEASE" | tail -n +1
+        kubectl get pods -n "$NAMESPACE" -o wide 2>/dev/null | tail -n +1
         return 1
       fi
     done

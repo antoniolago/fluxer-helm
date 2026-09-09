@@ -58,9 +58,7 @@ spec:
               containerPort: 8222
               protocol: TCP
           resources:
-            requests:
-              cpu: 100m
-              memory: 512Mi
+{{ toYaml .Values.nats.resources | nindent 12 }}
           readinessProbe:
             tcpSocket:
               port: 4222
