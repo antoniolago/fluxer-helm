@@ -101,7 +101,7 @@ meilisearch:
 seaweedfs:
   resources:
     requests:
-      cpu: 100m
+      cpu: 50m
       memory: 256Mi
 
 # Storage class + size per component. Postgres and SeaweedFS should use a
@@ -172,7 +172,7 @@ stateless:
     resources:
       requests:
         cpu: 100m
-        memory: 512Mi
+        memory: 256Mi
     probe:
       mode: http
       path: /_health
@@ -201,8 +201,8 @@ stateless:
       FLUXER_API_WORKER_ENABLE_VOICE_RECONCILIATION: "true"
     resources:
       requests:
-        cpu: 100m
-        memory: 512Mi
+        cpu: 50m
+        memory: 256Mi
 
   gateway:
     image: ghcr.io/fluxerapp/fluxer-gateway:2026.818.140943
@@ -355,7 +355,7 @@ shard:
 
 shardResources:
   requests:
-    cpu: 50m
+    cpu: 25m
     memory: 64Mi
 
 # Ingress (Istio VirtualService mirroring the Caddyfile route prefix-strip).
