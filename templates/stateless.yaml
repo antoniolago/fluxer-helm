@@ -1,0 +1,123 @@
+{{- range $name, $cfg := .Values.stateless }}
+{{- $kebab := $name | kebabcase }}
+{{- $app := printf "fluxer-%s" $kebab }}
+{{- $ctx := dict "publicUrl" (include "fluxer.publicUrl" $) "serviceNames" $.Values.serviceNames }}
+{{- if $cfg.service.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $kebab }}
+  namespace: {{ include "fluxer.namespace" $ }}
+  labels:
+    app.kubernetes.io/name: {{ $app }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ $app }}
+  ports:
+    - name: http
+      port: {{ $cfg.service.port }}
+      targetPort: {{ $cfg.service.port }}
+      protocol: TCP
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $kebab }}
+  namespace: {{ include "fluxer.namespace" $ }}
+  labels:
+    app.kubernetes.io/name: {{ $app }}
+spec:
+  replicas: {{ $cfg.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $app }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $app }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      {{- if $cfg.waitSeaweedfs }}
+      initContainers:
+{{ include "fluxer.waitSeaweedfs" $ | indent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $kebab }}
+          image: {{ $cfg.image | quote }}
+          imagePullPolicy: IfNotPresent
+          {{- if $cfg.workingDir }}
+          workingDir: {{ $cfg.workingDir | quote }}
+          {{- end }}
+          {{- if $cfg.command }}
+          command:
+{{- range $cfg.command }}
+            - {{ . }}
+{{- end }}
+          {{- end }}
+          {{- if $cfg.args }}
+          args:
+{{- range $cfg.args }}
+            - {{ . }}
+{{- end }}
+          {{- end }}
+          {{- if $cfg.extraEnv }}
+          env:
+{{- range $k, $v := $cfg.extraEnv }}
+            - name: {{ $k }}
+              value: {{ tpl $v $ctx | quote }}
+{{- end }}
+          {{- end }}
+          {{- if ne $cfg.useEnvFrom false }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "fluxer.configmapName" $ }}
+            - secretRef:
+                name: {{ include "fluxer.secretName" $ }}
+          {{- end }}
+          {{- if $cfg.service.enabled }}
+          ports:
+            - name: http
+              containerPort: {{ $cfg.service.port }}
+              protocol: TCP
+          {{- end }}
+          resources:
+{{ toYaml $cfg.resources | indent 12 }}
+          {{- if $cfg.probe }}
+          readinessProbe:
+{{- if eq $cfg.probe.mode "tcp" }}
+            tcpSocket:
+              port: {{ $cfg.probe.port }}
+{{- else }}
+            httpGet:
+              path: {{ $cfg.probe.path }}
+              port: {{ $cfg.probe.port }}
+{{- end }}
+            initialDelaySeconds: {{ $cfg.probe.initialDelaySeconds }}
+            periodSeconds: {{ $cfg.probe.periodSeconds }}
+            timeoutSeconds: {{ $cfg.probe.timeoutSeconds }}
+            {{- if $cfg.probe.failureThreshold }}
+            failureThreshold: {{ $cfg.probe.failureThreshold }}
+            {{- end }}
+          {{- if $cfg.probe.livenessInitialDelaySeconds }}
+          livenessProbe:
+{{- if eq $cfg.probe.mode "tcp" }}
+            tcpSocket:
+              port: {{ $cfg.probe.port }}
+{{- else }}
+            httpGet:
+              path: {{ $cfg.probe.path }}
+              port: {{ $cfg.probe.port }}
+{{- end }}
+            initialDelaySeconds: {{ $cfg.probe.livenessInitialDelaySeconds }}
+            periodSeconds: {{ $cfg.probe.livenessPeriodSeconds }}
+            timeoutSeconds: {{ $cfg.probe.timeoutSeconds }}
+            {{- if $cfg.probe.livenessFailureThreshold }}
+            failureThreshold: {{ $cfg.probe.livenessFailureThreshold }}
+            {{- end }}
+          {{- end }}
+          {{- end }}
+{{- end }}

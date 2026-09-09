@@ -1,0 +1,10 @@
+# chart-testing (ct) config — chart único na raiz do repo.
+remote: origin
+target-branch: main
+chart-dirs:
+  - .
+chart-repos: []
+validate-maintainers: false
+validate-chart-schema: true
+helm-extra-args: --timeout 300s
+check-version-increment: false

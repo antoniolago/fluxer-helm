@@ -1,0 +1,97 @@
+name: Publish Fluxer Helm Chart
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versão a publicar (ex: 0.2.0)'
+        required: true
+        default: '0.2.0'
+
+env:
+  GHCR_REGISTRY: ghcr.io
+  GHCR_OWNER: antoniolago
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+      - name: Helm lint
+        run: helm lint .
+
+  e2e:
+    name: E2E (KinD)
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.31.0
+      - name: Create KinD cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: fluxer-ci-test
+          config: .github/kind-config.yaml
+      - name: Install Fluxer chart
+        run: |
+          helm upgrade --install fluxer . \
+            --namespace fluxer \
+            --create-namespace \
+            -f ci/values-e2e.yaml \
+            --timeout 600s
+      - name: Run E2E
+        run: bash scripts/e2e-test.sh
+
+  publish:
+    name: Publish to GHCR
+    runs-on: ubuntu-latest
+    needs: [lint, e2e]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+          else
+            ref="${GITHUB_REF##*/}"
+            echo "VERSION=${ref#v}" >> "$GITHUB_ENV"
+          fi
+          echo "Publishing version: ${VERSION:-}"
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+      - name: Package
+        run: helm package --version "${VERSION}" .
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push chart (oci://ghcr.io/antoniolago)
+        run: |
+          echo "Pushing fluxer-${VERSION}.tgz -> oci://${GHCR_REGISTRY}/${GHCR_OWNER}"
+          helm push "fluxer-${VERSION}.tgz" "oci://${GHCR_REGISTRY}/${GHCR_OWNER}"
+      - name: Verify
+        continue-on-error: true
+        run: |
+          helm show all "oci://${GHCR_REGISTRY}/${GHCR_OWNER}/fluxer" --version "${VERSION}"

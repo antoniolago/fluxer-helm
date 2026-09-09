@@ -1,0 +1,22 @@
+{{- if and .Values.ingress.istio.enabled .Values.livekit.enabled .Values.livekit.turn.enabled }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: fluxer-turn
+  namespace: {{ include "fluxer.namespace" . }}
+spec:
+  hosts:
+    - {{ .Values.livekit.turn.domain }}
+  gateways:
+    - {{ .Values.ingress.istio.gateway }}
+  tls:
+    - match:
+        - port: 443
+          sniHosts:
+            - {{ .Values.livekit.turn.domain }}
+      route:
+        - destination:
+            host: {{ .Values.serviceNames.livekit }}
+            port:
+              number: {{ .Values.livekit.turn.tlsPort }}
+{{- end }}

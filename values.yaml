@@ -1,0 +1,331 @@
+# Fluxer self-hosted chart — values
+# Packages the microservices split of fluxerapp/fluxer (chat/VoIP, AGPL-3.0).
+# No secrets are stored here: create a Secret (see README) before installing.
+
+# Namespace where the stack is installed. Defaults to the release namespace.
+namespace: fluxer
+
+# Public instance configuration.
+fluxer:
+  domain: chat.example.com
+  scheme: https
+
+# Internal service DNS names. Adjust if you install with a different
+# inter-service layout; the templates reference these.
+serviceNames:
+  api: api
+  worker: worker
+  gateway: gateway
+  mediaProxy: media-proxy
+  staticProxy: static-proxy
+  appProxy: app-proxy
+  admin: admin
+  livekit: livekit
+  postgres: postgres
+  valkey: valkey
+  nats: nats
+  meilisearch: meilisearch
+  seaweedfs: seaweedfs
+
+# Shared non-sensitive ConfigMap and Secret names.
+configmapName: fluxer-config
+secretName: fluxer-secrets
+
+# Let the chart create the Secret from `secretData` (stringData).
+secrets:
+  create: false
+  secretData: {}
+
+# Init container that waits for the SeaweedFS master before the app starts.
+init:
+  waitForSeaweedfs: true
+
+# Feature toggles (default = off).
+features:
+  email:
+    enabled: false
+    provider: none
+    fromEmail: noreply@chat.example.com
+    fromName: Fluxer
+  sms:
+    enabled: false
+  captcha:
+    enabled: false
+    provider: none
+  stripe:
+    enabled: false
+  ncmec:
+    enabled: false
+  clamav:
+    enabled: false
+  discovery:
+    enabled: true
+  attachmentsUploadsPresigned: true
+  s3Bucket:
+    cdn: fluxer
+    uploads: fluxer-uploads
+    downloads: fluxer-downloads
+    reports: fluxer-reports
+    harvests: fluxer-harvests
+
+# Postgres database/user.
+postgres:
+  database: fluxer
+  user: fluxer
+  port: 5432
+
+# Storage class + size per component. Postgres and SeaweedFS should use a
+# block-backed class (never SMB/NFS) for data integrity and locking.
+storage:
+  postgres:
+    size: 10Gi
+    class: standard
+  nats:
+    size: 5Gi
+    class: standard
+  meilisearch:
+    size: 10Gi
+    class: standard
+  seaweedfs:
+    size: 30Gi
+    class: standard
+
+# Infrastructure images.
+images:
+  postgres: docker.io/library/postgres:16-alpine
+  valkey: docker.io/valkey/valkey:8.1-alpine
+  nats: docker.io/library/nats:2.14-alpine
+  meilisearch: docker.io/getmeili/meilisearch:v1.12
+  seaweedfs: docker.io/chrislusf/seaweedfs:4.34
+  busybox: docker.io/library/busybox:1.36
+
+# LiveKit (voice/video).
+livekit:
+  enabled: true
+  image: docker.io/livekit/livekit-server:v1.12.0
+  # Public IP announced in ICE candidates — must be the reachable NAT/edge IP.
+  # Leave empty to let LiveKit auto-detect (only works for direct connections).
+  nodeIP: ""
+  # Static LoadBalancer IP for media/TURN (e.g. a MetalLB free IP). Optional.
+  mediaLBIP: ""
+  # Service type for the media/TURN listener.
+  mediaServiceType: LoadBalancer
+  stun:
+    - stun.l.google.com:19302
+    - stun1.l.google.com:19302
+  turn:
+    # Enable TURN relay requires a dedicated (non-proxied) hostname + a TLS cert
+    # secret. Off by default; LiveKit signaling/ICE media still work.
+    enabled: false
+    domain: turn.chat.example.com
+    tlsPort: 5349
+    udpPort: 3478
+    # Secret holding the TLS cert/key mounted for TURN-TLS.
+    certSecret: fluxer-livekit-tls
+
+# ===== Stateless HTTP services (Deployment + optional ClusterIP Service) =====
+stateless:
+  api:
+    image: ghcr.io/fluxerapp/fluxer-api:2026.820.164808
+    replicas: 1
+    waitSeaweedfs: true
+    service:
+      enabled: true
+      port: 8080
+    extraEnv:
+      FLUXER_API_PORT: "8080"
+      FLUXER_API_PRESIGNED_ATTACHMENT_UPLOADS_ENABLED: "true"
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+    probe:
+      mode: http
+      path: /_health
+      port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 30
+      livenessInitialDelaySeconds: 90
+      livenessPeriodSeconds: 15
+      livenessFailureThreshold: 6
+
+  worker:
+    image: ghcr.io/fluxerapp/fluxer-api:2026.820.164808
+    replicas: 1
+    waitSeaweedfs: true
+    service:
+      enabled: false
+    command:
+      - ./node_modules/.bin/tsx
+      - src/WorkerEntrypoint.ts
+    workingDir: /usr/src/app/fluxer_api
+    extraEnv:
+      FLUXER_API_WORKER_MODE: all_lanes
+      FLUXER_API_WORKER_ENABLE_CRON_SCHEDULER: "true"
+      FLUXER_API_WORKER_ENABLE_VOICE_RECONCILIATION: "true"
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+  gateway:
+    image: ghcr.io/fluxerapp/fluxer-gateway:2026.818.140943
+    replicas: 1
+    service:
+      enabled: true
+      port: 8080
+    extraEnv:
+      FLUXER_GATEWAY_PORT: "8080"
+      FLUXER_GATEWAY_MEDIA_PROXY_ENDPOINT: "{{ .publicUrl }}/media"
+      FLUXER_GATEWAY_STATIC_CDN_ENDPOINT: "{{ .publicUrl }}"
+      FLUXER_GATEWAY_LOGGER_LEVEL: info
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    probe:
+      mode: http
+      path: /_health
+      port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 20
+      livenessInitialDelaySeconds: 30
+      livenessPeriodSeconds: 15
+
+  mediaProxy:
+    image: ghcr.io/fluxerapp/fluxer-media-proxy:2026.820.164955
+    replicas: 1
+    service:
+      enabled: true
+      port: 8080
+    extraEnv:
+      FLUXER_MEDIA_PROXY_HOST: 0.0.0.0
+      FLUXER_MEDIA_PROXY_PORT: "8080"
+      FLUXER_MEDIA_PROXY_MODE: upload
+      FLUXER_MEDIA_PROXY_STORAGE_BACKEND: s3
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    probe:
+      mode: http
+      path: /_health
+      port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 20
+      livenessInitialDelaySeconds: 30
+      livenessPeriodSeconds: 15
+
+  staticProxy:
+    image: ghcr.io/fluxerapp/fluxer-static:2026.812.125337
+    replicas: 1
+    service:
+      enabled: true
+      port: 8080
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+    probe:
+      mode: tcp
+      port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      livenessInitialDelaySeconds: 15
+      livenessPeriodSeconds: 15
+
+  appProxy:
+    image: ghcr.io/fluxerapp/fluxer-app-proxy-self-hosted:2026.820.154933
+    replicas: 1
+    useEnvFrom: false
+    service:
+      enabled: true
+      port: 8080
+    extraEnv:
+      FLUXER_APP_PROXY_HOST: 0.0.0.0
+      FLUXER_APP_PROXY_PORT: "8080"
+      DISCOVERY_UPSTREAM_URL: "{{ .publicUrl }}/api/.well-known/fluxer"
+      PUBLIC_BOOTSTRAP_API_ENDPOINT: /api
+      PUBLIC_BOOTSTRAP_API_PUBLIC_ENDPOINT: "{{ .publicUrl }}/api"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+    probe:
+      mode: tcp
+      port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      livenessInitialDelaySeconds: 15
+      livenessPeriodSeconds: 15
+
+  admin:
+    image: ghcr.io/fluxerapp/fluxer-admin:2026.818.35650
+    replicas: 1
+    service:
+      enabled: true
+      port: 8080
+    extraEnv:
+      FLUXER_ADMIN_HOST: 0.0.0.0
+      FLUXER_ADMIN_PORT: "8080"
+      FLUXER_ADMIN_BASE_PATH: /admin
+      FLUXER_API_ENDPOINT: "http://{{ .serviceNames.api }}:8080"
+      FLUXER_ADMIN_ENDPOINT: "{{ .publicUrl }}/admin"
+      FLUXER_APP_ENDPOINT: "{{ .publicUrl }}"
+      FLUXER_MEDIA_ENDPOINT: "{{ .publicUrl }}/media"
+      FLUXER_STATIC_CDN_ENDPOINT: "{{ .publicUrl }}"
+      FLUXER_ADMIN_OAUTH_REDIRECT_URI: "{{ .publicUrl }}/admin/oauth2_callback"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    probe:
+      mode: http
+      path: /_health
+      port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 20
+      livenessInitialDelaySeconds: 30
+      livenessPeriodSeconds: 15
+
+# ===== Shard services (NATS) — router + shard, no Service =====
+shard:
+  users:
+    image: ghcr.io/fluxerapp/fluxer-users:2026.630.20736
+    replicas: 1
+  gifs:
+    image: ghcr.io/fluxerapp/fluxer-gifs:2026.814.174058
+    replicas: 1
+    extraEnv:
+      FLUXER_SVC_NAME: gifs
+      FLUXER_MEDIA_PROXY_PUBLIC_ENDPOINT: "{{ .publicUrl }}/media"
+  messages:
+    image: ghcr.io/fluxerapp/fluxer-messages:2026.702.214529
+    replicas: 1
+  unfurl:
+    image: ghcr.io/fluxerapp/fluxer-unfurl:2026.816.212224
+    replicas: 1
+  snowflakes:
+    image: ghcr.io/fluxerapp/fluxer-snowflakes:2026.630.20736
+    replicas: 1
+
+shardResources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+# Ingress (Istio VirtualService mirroring the Caddyfile route prefix-strip).
+ingress:
+  istio:
+    enabled: true
+    gateway: istio-system/istio-gateway

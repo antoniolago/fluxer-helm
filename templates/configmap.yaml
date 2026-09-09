@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "fluxer.configmapName" . }}
+  namespace: {{ include "fluxer.namespace" . }}
+data:
+  FLUXER_ENV: production
+  NODE_ENV: production
+  FLUXER_SELF_HOSTED: "true"
+  FLUXER_BASE_DOMAIN: {{ .Values.fluxer.domain | quote }}
+  FLUXER_PUBLIC_SCHEME: {{ .Values.fluxer.scheme | quote }}
+  FLUXER_PUBLIC_PORT: {{ include "fluxer.publicPort" . | quote }}
+  FLUXER_TRUST_CLIENT_IP_HEADER: "true"
+  FLUXER_CLIENT_IP_HEADER_NAME: x-forwarded-for
+
+  FLUXER_DATABASE_BACKEND: postgres
+  FLUXER_POSTGRES_HOST: {{ .Values.serviceNames.postgres | quote }}
+  FLUXER_POSTGRES_PORT: {{ .Values.postgres.port | quote }}
+  FLUXER_POSTGRES_DATABASE: {{ .Values.postgres.database | quote }}
+  FLUXER_POSTGRES_USERNAME: {{ .Values.postgres.user | quote }}
+  FLUXER_POSTGRES_SSL: "false"
+
+  FLUXER_KV_URL: "redis://{{ .Values.serviceNames.valkey }}:6379/0"
+  FLUXER_NATS_URL: "nats://{{ .Values.serviceNames.nats }}:4222"
+  FLUXER_NATS_JETSTREAM_URL: "nats://{{ .Values.serviceNames.nats }}:4222"
+  FLUXER_SVC_NATS_URL: "nats://{{ .Values.serviceNames.nats }}:4222"
+  FLUXER_SVC_SHARD_COUNT: "1"
+
+  FLUXER_SEARCH_ENGINE: meilisearch
+  FLUXER_SEARCH_URL: "http://{{ .Values.serviceNames.meilisearch }}:7700"
+
+  FLUXER_S3_ENDPOINT: "http://{{ .Values.serviceNames.seaweedfs }}:8333"
+  FLUXER_S3_PUBLIC_ENDPOINT: "http://{{ .Values.serviceNames.seaweedfs }}:8333"
+  FLUXER_S3_REGION: us-east-1
+  FLUXER_S3_FORCE_PATH_STYLE: "true"
+  FLUXER_S3_BUCKET_CDN: {{ .Values.features.s3Bucket.cdn }}
+  FLUXER_S3_BUCKET_UPLOADS: {{ .Values.features.s3Bucket.uploads }}
+  FLUXER_S3_BUCKET_DOWNLOADS: {{ .Values.features.s3Bucket.downloads }}
+  FLUXER_S3_BUCKET_REPORTS: {{ .Values.features.s3Bucket.reports }}
+  FLUXER_S3_BUCKET_HARVESTS: {{ .Values.features.s3Bucket.harvests }}
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_EC2_METADATA_DISABLED: "true"
+
+  FLUXER_LIVEKIT_ENABLED: {{ .Values.livekit.enabled | quote }}
+  FLUXER_LIVEKIT_API_KEY: fluxer
+  FLUXER_LIVEKIT_WEBHOOK_URL: "http://{{ .Values.serviceNames.api }}:8080/webhooks/livekit"
+  FLUXER_LIVEKIT_DEFAULT_REGION: '{"id":"default","name":"Default","emoji":"🌍","latitude":0,"longitude":0}'
+
+  FLUXER_EMAIL_ENABLED: {{ .Values.features.email.enabled | quote }}
+  FLUXER_EMAIL_PROVIDER: {{ .Values.features.email.provider | quote }}
+  FLUXER_EMAIL_FROM_EMAIL: {{ .Values.features.email.fromEmail | quote }}
+  FLUXER_EMAIL_FROM_NAME: {{ .Values.features.email.fromName | quote }}
+  FLUXER_SMS_ENABLED: {{ .Values.features.sms.enabled | quote }}
+  FLUXER_CAPTCHA_ENABLED: {{ .Values.features.captcha.enabled | quote }}
+  FLUXER_CAPTCHA_PROVIDER: {{ .Values.features.captcha.provider | quote }}
+  FLUXER_STRIPE_ENABLED: {{ .Values.features.stripe.enabled | quote }}
+  FLUXER_NCMEC_ENABLED: {{ .Values.features.ncmec.enabled | quote }}
+  FLUXER_CLAMAV_ENABLED: {{ .Values.features.clamav.enabled | quote }}
+  FLUXER_DISCOVERY_ENABLED: {{ .Values.features.discovery.enabled | quote }}
+
+  FLUXER_INTERNAL_API_ENDPOINT: "http://{{ .Values.serviceNames.api }}:8080"
+  FLUXER_INTERNAL_GATEWAY_ENDPOINT: "http://{{ .Values.serviceNames.gateway }}:8080"
+  FLUXER_INTERNAL_MEDIA_PROXY_ENDPOINT: "http://{{ .Values.serviceNames.mediaProxy }}:8080"
+  FLUXER_MARKETING_ENDPOINT: {{ include "fluxer.publicUrl" . | quote }}
+  FLUXER_MEDIA_PROXY_ENDPOINT: "http://{{ .Values.serviceNames.mediaProxy }}:8080"
+  FLUXER_MEDIA_ENDPOINT: {{ printf "%s/media" (include "fluxer.publicUrl" .) | quote }}
+  FLUXER_MEDIA_PROXY_UPLOAD_RELAY_ENDPOINT: {{ printf "%s/media" (include "fluxer.publicUrl" .) | quote }}

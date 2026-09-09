@@ -1,0 +1,175 @@
+{{- if .Values.livekit.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: livekit-config
+  namespace: {{ include "fluxer.namespace" . }}
+data:
+  livekit.yaml: |
+    port: 7880
+    log_level: info
+
+    rtc:
+      tcp_port: 7881
+      udp_port: 7882
+{{- if .Values.livekit.nodeIP }}
+      node_ip: {{ .Values.livekit.nodeIP }}
+{{- end }}
+      stun_servers:
+{{- range .Values.livekit.stun }}
+        - {{ . }}
+{{- end }}
+
+    turn:
+      enabled: {{ .Values.livekit.turn.enabled }}
+{{- if .Values.livekit.turn.enabled }}
+      domain: {{ .Values.livekit.turn.domain }}
+      tls_port: {{ .Values.livekit.turn.tlsPort }}
+      udp_port: {{ .Values.livekit.turn.udpPort }}
+      cert_file: /etc/livekit-tls/tls.crt
+      key_file: /etc/livekit-tls/tls.key
+{{- end }}
+
+    webhook:
+      api_key: fluxer
+      urls:
+        - http://{{ .Values.serviceNames.api }}:8080/webhooks/livekit
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.serviceNames.livekit }}
+  namespace: {{ include "fluxer.namespace" . }}
+  labels:
+    app.kubernetes.io/name: fluxer-livekit
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: fluxer-livekit
+  ports:
+    - name: signaling
+      port: 7880
+      targetPort: 7880
+      protocol: TCP
+    - name: turns-tcp
+      port: {{ .Values.livekit.turn.tlsPort }}
+      targetPort: {{ .Values.livekit.turn.tlsPort }}
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.serviceNames.livekit }}-media
+  namespace: {{ include "fluxer.namespace" . }}
+  labels:
+    app.kubernetes.io/name: fluxer-livekit
+spec:
+  type: {{ .Values.livekit.mediaServiceType | default "LoadBalancer" }}
+  {{- if .Values.livekit.mediaLBIP }}
+  loadBalancerIP: {{ .Values.livekit.mediaLBIP }}
+  {{- end }}
+  selector:
+    app.kubernetes.io/name: fluxer-livekit
+  ports:
+    - name: tcp-media
+      port: 7881
+      targetPort: 7881
+      protocol: TCP
+    - name: udp-media
+      port: 7882
+      targetPort: 7882
+      protocol: UDP
+    - name: turn-udp
+      port: {{ .Values.livekit.turn.udpPort }}
+      targetPort: {{ .Values.livekit.turn.udpPort }}
+      protocol: UDP
+    - name: turns-tcp
+      port: {{ .Values.livekit.turn.tlsPort }}
+      targetPort: {{ .Values.livekit.turn.tlsPort }}
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.serviceNames.livekit }}
+  namespace: {{ include "fluxer.namespace" . }}
+  labels:
+    app.kubernetes.io/name: fluxer-livekit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fluxer-livekit
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fluxer-livekit
+    spec:
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: livekit
+          image: {{ .Values.livekit.image | quote }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config
+            - /etc/livekit.yaml
+          env:
+            - name: LIVEKIT_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fluxer.secretName" . }}
+                  key: LIVEKIT_KEYS
+          ports:
+            - name: signaling
+              containerPort: 7880
+              protocol: TCP
+            - name: tcp-media
+              containerPort: 7881
+              protocol: TCP
+            - name: udp-media
+              containerPort: 7882
+              protocol: UDP
+            - name: turn-udp
+              containerPort: {{ .Values.livekit.turn.udpPort }}
+              protocol: UDP
+            - name: turns-tcp
+              containerPort: {{ .Values.livekit.turn.tlsPort }}
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          readinessProbe:
+            tcpSocket:
+              port: 7880
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            tcpSocket:
+              port: 7880
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: config
+              mountPath: /etc/livekit.yaml
+              subPath: livekit.yaml
+              readOnly: true
+            {{- if .Values.livekit.turn.enabled }}
+            - name: tls
+              mountPath: /etc/livekit-tls
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: livekit-config
+        {{- if .Values.livekit.turn.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.livekit.turn.certSecret }}
+        {{- end }}
+{{- end }}

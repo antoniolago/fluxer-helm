@@ -1,0 +1,2 @@
+# empacotar via ci, nao commitar o .tgz
+*.tgz

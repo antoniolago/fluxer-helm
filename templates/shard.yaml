@@ -1,0 +1,56 @@
+{{- range $name, $cfg := .Values.shard }}
+{{- $kebab := $name | kebabcase }}
+{{- $app := printf "fluxer-%s" $kebab }}
+{{- $ctx := dict "publicUrl" (include "fluxer.publicUrl" $) "serviceNames" $.Values.serviceNames }}
+{{- range $mode := list "router" "shard" }}
+{{- $suffix := "" }}
+{{- if eq $mode "shard" }}{{ $suffix = "-shard" }}{{ end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $kebab }}{{ $suffix }}
+  namespace: {{ include "fluxer.namespace" $ }}
+  labels:
+    app.kubernetes.io/name: {{ $app }}
+    fluxer.io/role: {{ $mode }}
+spec:
+  replicas: {{ $cfg.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $app }}
+      fluxer.io/role: {{ $mode }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $app }}
+        fluxer.io/role: {{ $mode }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: {{ $kebab }}
+          image: {{ $cfg.image | quote }}
+          imagePullPolicy: IfNotPresent
+          env:
+{{- if $cfg.extraEnv }}
+{{- range $k, $v := $cfg.extraEnv }}
+            - name: {{ $k }}
+              value: {{ tpl $v $ctx | quote }}
+{{- end }}
+{{- end }}
+            - name: FLUXER_SVC_MODE
+              value: {{ $mode }}
+            {{- if eq $mode "shard" }}
+            - name: FLUXER_SVC_SHARD_ID
+              value: "0"
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "fluxer.configmapName" $ }}
+            - secretRef:
+                name: {{ include "fluxer.secretName" $ }}
+          resources:
+{{ toYaml $.Values.shardResources | indent 12 }}
+{{- end }}
+{{- end }}

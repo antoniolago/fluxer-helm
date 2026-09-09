@@ -1,0 +1,120 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.serviceNames.seaweedfs }}
+  namespace: {{ include "fluxer.namespace" . }}
+  labels:
+    app.kubernetes.io/name: fluxer-seaweedfs
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: fluxer-seaweedfs
+  ports:
+    - name: s3
+      port: 8333
+      targetPort: 8333
+      protocol: TCP
+    - name: master
+      port: 9333
+      targetPort: 9333
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.serviceNames.seaweedfs }}
+  namespace: {{ include "fluxer.namespace" . }}
+  labels:
+    app.kubernetes.io/name: fluxer-seaweedfs
+spec:
+  serviceName: {{ .Values.serviceNames.seaweedfs }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fluxer-seaweedfs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fluxer-seaweedfs
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: seaweedfs
+          image: {{ .Values.images.seaweedfs | quote }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - server
+            - -s3
+            - -dir=/data
+          ports:
+            - name: s3
+              containerPort: 8333
+              protocol: TCP
+            - name: master
+              containerPort: 9333
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          readinessProbe:
+            tcpSocket:
+              port: 8333
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            tcpSocket:
+              port: 8333
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ .Values.storage.seaweedfs.class }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.seaweedfs.size }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.serviceNames.seaweedfs }}-init
+  namespace: {{ include "fluxer.namespace" . }}
+  labels:
+    app.kubernetes.io/name: fluxer-seaweedfs
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: {{ .Values.images.seaweedfs | quote }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              for i in $(seq 1 90); do
+                nc -z -w 2 {{ .Values.serviceNames.seaweedfs }} 9333 >/dev/null 2>&1 && break || sleep 2
+              done
+              for b in {{ .Values.features.s3Bucket.cdn }} {{ .Values.features.s3Bucket.uploads }} {{ .Values.features.s3Bucket.downloads }} {{ .Values.features.s3Bucket.reports }} {{ .Values.features.s3Bucket.harvests }}; do
+                (echo "s3.bucket.create -name $b" | timeout 20 weed shell -master={{ .Values.serviceNames.seaweedfs }}:9333 >/dev/null 2>&1) || true
+              done
+              echo "buckets ready"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi

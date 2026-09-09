@@ -1,0 +1,113 @@
+{{- if .Values.ingress.istio.enabled }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: fluxer
+  namespace: {{ include "fluxer.namespace" . }}
+spec:
+  hosts:
+    - {{ .Values.fluxer.domain }}
+  gateways:
+    - {{ .Values.ingress.istio.gateway }}
+  http:
+    - match:
+        - uri:
+            prefix: /api/
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: {{ .Values.serviceNames.api }}
+            port:
+              number: 8080
+    - match:
+        - uri:
+            exact: /gateway
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: {{ .Values.serviceNames.gateway }}
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /gateway/
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: {{ .Values.serviceNames.gateway }}
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /media/
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: {{ .Values.serviceNames.mediaProxy }}
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /livekit/
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: {{ .Values.serviceNames.livekit }}
+            port:
+              number: 7880
+    - match:
+        - uri:
+            exact: /admin
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: {{ .Values.serviceNames.admin }}
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /admin/
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: {{ .Values.serviceNames.admin }}
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /fonts/
+        - uri:
+            prefix: /web/
+        - uri:
+            prefix: /emoji/
+        - uri:
+            prefix: /libs/
+        - uri:
+            prefix: /avatars/
+        - uri:
+            prefix: /badges/
+        - uri:
+            prefix: /desktop/
+        - uri:
+            prefix: /embeds/
+      route:
+        - destination:
+            host: {{ .Values.serviceNames.staticProxy }}
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: {{ .Values.serviceNames.appProxy }}
+            port:
+              number: 8080
+{{- end }}

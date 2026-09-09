@@ -1,0 +1,63 @@
+# =============================================================================
+# CI e2e overrides — run on KinD (GitHub Actions, ubuntu).
+# KinD has no MetalLB, no Istio, no custom StorageClass.
+# Here: KinD default StorageClass = `standard` (rancher.io/local-path); LiveKit
+# media as ClusterIP (no LB IP/Service); TURN off (no TLS secret); Istio off (no
+# VirtualService/CRD); Secret created by the chart (test placeholders). Internal
+# domain fluxer.local; the e2e validates each service via port-forward.
+# =============================================================================
+fluxer:
+  domain: fluxer.local
+  scheme: http
+
+# Nenhuma storage class SMB/proxmox no KinD — usa local-path.
+storage:
+  postgres:
+    class: standard
+    size: 1Gi
+  nats:
+    class: standard
+    size: 1Gi
+  meilisearch:
+    class: standard
+    size: 1Gi
+  seaweedfs:
+    class: standard
+    size: 2Gi
+
+livekit:
+  enabled: true
+  mediaServiceType: ClusterIP
+  mediaLBIP: ""
+  turn:
+    enabled: false
+    certSecret: ""
+
+ingress:
+  istio:
+    enabled: false
+
+# Secret created by the chart (stringData) with TEST-only values — never production.
+secrets:
+  create: true
+  secretData:
+    POSTGRES_PASSWORD: ci-password
+    FLUXER_POSTGRES_PASSWORD: ci-password
+    MEILI_MASTER_KEY: ci-meili-master-key
+    FLUXER_SEARCH_API_KEY: ci-meili-master-key
+    LIVEKIT_API_SECRET: ci-livekit-secret
+    FLUXER_LIVEKIT_API_SECRET: ci-livekit-secret
+    LIVEKIT_KEYS: "fluxer: ci-livekit-secret"
+    FLUXER_S3_ACCESS_KEY_ID: fluxer
+    FLUXER_S3_SECRET_ACCESS_KEY: ci-s3-secret
+    AWS_ACCESS_KEY_ID: ci-s3-secret
+    AWS_SECRET_ACCESS_KEY: ci-s3-secret
+    FLUXER_SUDO_MODE_SECRET: ci-sudo-secret
+    FLUXER_CONNECTION_INITIATION_SECRET: ci-conn-secret
+    FLUXER_GATEWAY_RPC_AUTH_TOKEN: ci-rpc-token
+    FLUXER_MEDIA_PROXY_SECRET_KEY: ci-media-key
+    FLUXER_MEDIA_PROXY_UPLOAD_RELAY_SECRET_BASE64: ci-media-relay
+    FLUXER_ADMIN_SECRET_KEY_BASE: ci-admin-key-base
+    FLUXER_ADMIN_OAUTH_CLIENT_SECRET: ci-oauth-secret
+    FLUXER_VAPID_PUBLIC_KEY: ci-vapid-pub
+    FLUXER_VAPID_PRIVATE_KEY: ci-vapid-priv

@@ -1,0 +1,7 @@
+# KinD cluster for CI e2e (GitHub Actions ubuntu runner).
+# Single control-plane node; default StorageClass `standard` (rancher.io/local-path)
+# provisiona os PVCs RWO. No addons needed.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
