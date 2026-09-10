@@ -47,10 +47,8 @@ spec:
             - name: conf
               mountPath: /etc/nginx/conf.d/default.conf
               subPath: default.conf
-          resources:
-            requests:
-              cpu: 25m
-              memory: 32Mi
+          # no resource requests: the CI node is sized for the Fluxer chart,
+          # so a best-effort nginx always fits.
           readinessProbe:
             tcpSocket:
               port: 8080
