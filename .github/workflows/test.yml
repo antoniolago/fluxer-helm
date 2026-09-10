@@ -76,6 +76,10 @@ jobs:
             --create-namespace \
             -f ci/values-e2e.yaml \
             --timeout 600s
+      - name: Install E2E discovery proxy (stand-in for ingress)
+        run: |
+          kubectl apply -f ci/e2e-proxy.yaml
+          kubectl rollout status deployment/e2e-proxy -n ${{ env.NAMESPACE }} --timeout=120s
       - name: Run E2E
         env:
           NAMESPACE: ${{ env.NAMESPACE }}

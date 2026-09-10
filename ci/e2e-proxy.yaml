@@ -1,0 +1,78 @@
+# E2E-only discovery proxy: stands in for the ingress. The Fluxer API's
+# RequireClientIpMiddleware rejects requests to /.well-known/fluxer unless a
+# proxy header (x-forwarded-for) is present; in production the ingress adds it.
+# This nginx adds it so the app-proxy can populate its discovery cache and
+# serve the SPA. Applied only by the CI E2E (not part of the chart).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: e2e-proxy-conf
+  namespace: fluxer
+data:
+  default.conf: |
+    server {
+      listen 8080;
+      location / {
+        proxy_pass http://api:8080;
+        proxy_set_header Host $host;
+        proxy_set_header x-forwarded-for $remote_addr;
+        proxy_set_header x-forwarded-host $host;
+        proxy_set_header x-forwarded-proto http;
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: e2e-proxy
+  namespace: fluxer
+  labels:
+    app: e2e-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: e2e-proxy
+  template:
+    metadata:
+      labels:
+        app: e2e-proxy
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/library/nginx:1.27-alpine
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+      volumes:
+        - name: conf
+          configMap:
+            name: e2e-proxy-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: e2e-proxy
+  namespace: fluxer
+  labels:
+    app: e2e-proxy
+spec:
+  selector:
+    app: e2e-proxy
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

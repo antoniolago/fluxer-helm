@@ -167,11 +167,14 @@ helm template fluxer . --namespace fluxer
 4. **SeaweedFS**: the 5 S3 buckets exist (via `weed shell`).
 5. Endpoints return 200: `api/_health`, `media-proxy/_health`, `admin/_health`,
    `gateway/_health`, `livekit` (7880).
-6. **Discovery** `/api/.well-known/fluxer` → the API serves the route (200 with
-   `api/gateway/media/static_cdn/admin`, or 403 anti-DNS-rebinding when no
-   ingress is installed — the JSON requires the public URL through ingress).
-7. **Web client** `app-proxy` responds HTTP 200 (the SPA bootstrap requires an
-   ingress / resolvable hostname).
+6. **Discovery** `/api/.well-known/fluxer` → 200 with the endpoint document
+   (`api/gateway/media/static_cdn/admin`).
+7. **Web client** `app-proxy` serves the Fluxer SPA (HTTP 200 with the app shell).
+
+The E2E applies `ci/e2e-proxy.yaml` (a tiny nginx) after the chart: the API's
+`RequireClientIpMiddleware` rejects `/.well-known/fluxer` unless a proxy header
+(`x-forwarded-for`) is present, and the app-proxy fetches the discovery through
+it — standing in for the ingress used in production.
 
 Run the E2E locally:
 ```bash

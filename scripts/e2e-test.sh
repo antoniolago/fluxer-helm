@@ -133,37 +133,30 @@ check_http() {
 }
 
 check_discovery() {
-  step "Discovery: /.well-known/fluxer routed by the API"
+  step "Discovery: /.well-known/fluxer returns the endpoint document"
   local body code
+  # the API requires the client-ip proxy header (x-forwarded-for) on this path
   body=$(run_pod_curl --silent --write-out '\n%{http_code}' \
-    -H 'Host: fluxer.local' -H 'x-forwarded-host: fluxer.local' -H 'x-forwarded-proto: http' \
+    -H 'Host: fluxer.local' -H 'x-forwarded-for: 127.0.0.1' \
+    -H 'x-forwarded-host: fluxer.local' -H 'x-forwarded-proto: http' \
     'http://api:8080/.well-known/fluxer' 2>/dev/null || true)
   code=$(printf '%s' "$body" | tail -n1)
   body=$(printf '%s' "$body" | sed '$d')
-  case "$code" in
-    200)
-      if printf '%s' "$body" | python3 -c '
+  if [ "$code" != "200" ]; then
+    fail "discovery returned HTTP ${code:-connection-failed}"
+    return 1
+  fi
+  if printf '%s' "$body" | python3 -c '
 import sys,json
 try: d=json.load(sys.stdin)
 except Exception: sys.exit(1)
+eps=d.get("endpoints",{})
 need=["api","gateway","media","static_cdn","admin"]
-sys.exit(0 if all(k in d for k in need) else 1)' 2>/dev/null; then
-        ok "discovery JSON has api/gateway/media/static_cdn/admin"
-      else
-        fail "discovery JSON invalid or endpoints missing"
-      fi
-      ;;
-    403)
-      # no ingress in this e2e -> direct call 403 (anti-DNS-rebinding); route exists
-      ok "discovery route served (HTTP 403 — anti-DNS-rebinding; ingress required for the JSON)"
-      ;;
-    404)
-      fail "discovery route not found (404)"
-      ;;
-    *)
-      fail "discovery returned HTTP ${code:-connection-failed}"
-      ;;
-  esac
+sys.exit(0 if all(k in eps for k in need) else 1)' 2>/dev/null; then
+    ok "discovery JSON has api/gateway/media/static_cdn/admin"
+  else
+    fail "discovery JSON invalid or endpoints missing"
+  fi
 }
 
 check_web() {
@@ -173,11 +166,9 @@ check_web() {
   code=$(printf '%s' "$body" | tail -n1)
   body=$(printf '%s' "$body" | sed '$d')
   if [ "$code" = "200" ] && printf '%s' "$body" | grep -qi 'Fluxer'; then
-    ok "app-proxy serves the Fluxer SPA (HTTP 200)"
-  elif [ "$code" = "200" ]; then
-    ok "app-proxy responds HTTP 200 (discovery bootstrap needs an ingress)"
+    ok "app-proxy serves the Fluxer SPA (HTTP 200, has the app shell)"
   else
-    fail "app-proxy returned HTTP ${code:-connection-failed}"
+    fail "app-proxy returned HTTP ${code:-connection-failed} without the Fluxer SPA"
   fi
 }
 

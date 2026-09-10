@@ -37,6 +37,13 @@ ingress:
   istio:
     enabled: false
 
+# app-proxy fetches the discovery through the e2e proxy (which adds the
+# x-forwarded-for header the API requires), so it can serve the SPA.
+stateless:
+  appProxy:
+    extraEnv:
+      DISCOVERY_UPSTREAM_URL: "http://e2e-proxy:8080/.well-known/fluxer"
+
 # Secret created by the chart (stringData) with TEST-only values — never production.
 secrets:
   create: true
