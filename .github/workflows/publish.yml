@@ -93,9 +93,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push chart (oci://ghcr.io/antoniolago)
         run: |
-          echo "Pushing fluxer-${VERSION}.tgz -> oci://${GHCR_REGISTRY}/${GHCR_OWNER}"
-          helm push "fluxer-${VERSION}.tgz" "oci://${GHCR_REGISTRY}/${GHCR_OWNER}"
+          echo "Pushing fluxer-helm-${VERSION}.tgz -> oci://${GHCR_REGISTRY}/${GHCR_OWNER}"
+          helm push "fluxer-helm-${VERSION}.tgz" "oci://${GHCR_REGISTRY}/${GHCR_OWNER}"
       - name: Verify
         continue-on-error: true
         run: |
-          helm show all "oci://${GHCR_REGISTRY}/${GHCR_OWNER}/fluxer" --version "${VERSION}"
+          helm show all "oci://${GHCR_REGISTRY}/${GHCR_OWNER}/fluxer-helm" --version "${VERSION}"
