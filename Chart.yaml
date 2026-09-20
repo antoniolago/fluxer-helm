@@ -1,11 +1,11 @@
 apiVersion: v2
-name: fluxer
-description: Self-hosted Fluxer (fluxerapp/fluxer) — open-source chat & VoIP platform. Microservices split packaged for Kubernetes.
+name: fluxer-helm
+description: Helm chart for Fluxer (fluxerapp/fluxer)
 version: 0.1.0
 appVersion: "2026.820"
-home: https://github.com/fluxerapp/fluxer
+home: https://github.com/antoniolago/fluxer-helm-chart
 sources:
-  - https://github.com/fluxerapp/fluxer
+  - https://github.com/antoniolago/fluxer-helm-chart
 keywords:
   - fluxer
   - chat
@@ -14,4 +14,4 @@ keywords:
   - self-hosted
 type: application
 maintainers:
-  - name: Fluxer self-hosted maintainers
+  - name: Antônio Lago
