@@ -1,0 +1,34 @@
+# Artifact Hub repository metadata
+#
+# This chart is published to an OCI registry, so this file is not served over
+# HTTP. It is pushed to the registry as an ORAS artifact under the reserved
+# tag `artifacthub.io`, and that is where Artifact Hub pulls it from:
+#
+#   repository URL : oci://ghcr.io/antoniolago/fluxer-helm
+#   metadata       : ghcr.io/antoniolago/fluxer-helm:artifacthub.io
+#
+# The push runs automatically on every release (see the "Publish Artifact Hub
+# metadata" step in .github/workflows/publish.yml), so a change committed here
+# reaches Artifact Hub with the next published version. To push it by hand:
+#
+#   oras login ghcr.io -u antoniolago -p "$(gh auth token)"
+#   oras push ghcr.io/antoniolago/fluxer-helm:artifacthub.io \
+#     --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
+#     artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
+#
+# Reference: https://artifacthub.io/docs/topics/repositories/helm-charts/
+
+# Enables the "Verified publisher" badge. Copy the value from the Artifact Hub
+# control panel: Repositories tab -> this repository's card -> ID.
+# Uncomment and fill in once the repository has been added there.
+# repositoryID: <id from the Artifact Hub control panel>
+
+# Only needed to claim a repository that somebody else added first. The email
+# must match the one used to sign in to Artifact Hub. Setting up the repository
+# from your own account already makes you the owner, so this stays unused.
+# owners:
+#   - name: antoniolago
+#     email: <artifact hub sign-in email>
+
+# Packages that must not be indexed.
+ignore: []

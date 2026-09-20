@@ -3,9 +3,9 @@ name: fluxer-helm
 description: Helm chart for Fluxer (fluxerapp/fluxer)
 version: 0.1.1
 appVersion: "2026.820"
-home: https://github.com/antoniolago/fluxer-helm-chart
+home: https://github.com/antoniolago/fluxer-helm
 sources:
-  - https://github.com/antoniolago/fluxer-helm-chart
+  - https://github.com/antoniolago/fluxer-helm
 keywords:
   - fluxer
   - chat

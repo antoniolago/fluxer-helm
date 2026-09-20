@@ -140,6 +140,23 @@ secrets:
 - Open in the firewall: 7881/TCP, 7882/UDP, 3478/UDP and the TURN relay range →
   the media LoadBalancer IP (`livekit.mediaLBIP`).
 
+## Distribution (OCI registry)
+
+Releases are published as an OCI chart on GHCR by `.github/workflows/publish.yml`
+(tag `v*`), and listed on Artifact Hub:
+
+```bash
+helm install fluxer oci://ghcr.io/antoniolago/fluxer-helm --version 0.2.0 \
+  --namespace fluxer --create-namespace
+```
+
+- Repository URL for Artifact Hub: `oci://ghcr.io/antoniolago/fluxer-helm`
+  (the chart name is part of the URL — `oci://ghcr.io/antoniolago` alone is not
+  a valid chart repository).
+- Artifact Hub metadata (`artifacthub-repo.yml`) has no HTTP path to live on in
+  an OCI registry: the workflow pushes it to the reserved `artifacthub.io` tag
+  with ORAS, which is where Artifact Hub reads it from.
+
 ## Validate (no cluster)
 
 ```bash
