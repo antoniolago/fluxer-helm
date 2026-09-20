@@ -29,7 +29,7 @@ stack: infrastructure, application services, and Istio ingress.
 ## Install
 
 ```bash
-helm upgrade --install fluxer . \
+helm upgrade --install fluxer-helm . \
   --namespace fluxer \
   --create-namespace \
   --set fluxer.domain=chat.your-domain.com
